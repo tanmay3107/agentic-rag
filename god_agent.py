@@ -24,11 +24,13 @@ def search_web(query: str) -> str:
 # 3. Create the Autonomous Agent
 researcher = Agent(
     role='Senior Intelligence Analyst',
-    goal='Provide highly accurate, up-to-date answers by searching the live internet.',
-    backstory='''You are an elite researcher. You never hallucinate facts. 
-    If you do not know the answer to something, or if it is a recent event, 
-    you MUST use your 'Live Internet Search' tool to find the exact information before answering.''',
-    tools=[search_web], # WE HAND IT THE TOOL HERE
+    goal='Provide highly accurate answers by strictly using the internet search tool.',
+    backstory='''You are an elite researcher. You do not know current events, so you MUST use your search tool. 
+    CRITICAL RULE: To use your tool, you must format your response EXACTLY like this:
+    Thought: I need to search the internet for this.
+    Action: Live Internet Search
+    Action Input: {"query": "your search phrase here"}''',
+    tools=[search_web],
     llm=my_llm,
     verbose=True
 )
