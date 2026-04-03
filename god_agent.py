@@ -1,59 +1,46 @@
-from crewai import Agent, Task, Crew, LLM
-from crewai.tools import tool
 from langchain_community.tools import DuckDuckGoSearchRun
+from openai import OpenAI
 
-print("🌐 Booting up Agentic Web Researcher...")
+print("🌐 Booting up Native Web Agent...")
 
-# 1. Connect to Local Brain (Temperature strictly at 0.0)
-my_llm = LLM(
-    model="openai/local-model", 
-    base_url="http://localhost:1234/v1",
-    api_key="lm-studio",
-    temperature=0.0 # ZERO creativity allowed for tool calling
-)
+# 1. Connect to Local Brain
+client = OpenAI(base_url="http://localhost:1234/v1", api_key="lm-studio")
 
+# 2. Setup Web Search
 web_search = DuckDuckGoSearchRun()
-
-@tool("Live Internet Search")
-def search_web(query: str) -> str:
-    """Search the internet about a given topic and return relevant results."""
-    return web_search.invoke(query)
-
-# 2. The Bulletproof Prompt
-researcher = Agent(
-    role='Senior Intelligence Analyst',
-    goal='Provide highly accurate answers by strictly using the Live Internet Search tool.',
-    backstory='''You are an elite AI researcher. You MUST use the 'Live Internet Search' tool to answer the user.
-    CRITICAL RULE: You must format your tool call EXACTLY like this, and you MUST include the closing bracket '}':
-    
-    Thought: I need to search the internet.
-    Action: Live Internet Search
-    Action Input: {"query": "your exact search phrase"}
-    ''',
-    tools=[search_web],
-    llm=my_llm,
-    verbose=True
-)
 
 print("-" * 50)
 user_query = input("👨‍💻 You: What would you like me to research?\n> ")
 print("-" * 50)
 
-task = Task(
-    description=f'Search the web to answer this exact query: "{user_query}".',
-    expected_output='A concise, accurate summary of the web search results.',
-    agent=researcher
-)
+# 3. Python runs the search FIRST (Bypassing the AI's need to write JSON)
+print("🔍 Browsing the live internet...")
+try:
+    search_results = web_search.invoke(user_query)
+except Exception as e:
+    search_results = f"Search failed: {e}"
 
-crew = Crew(
-    agents=[researcher],
-    tasks=[task],
-    verbose=True
-)
+# 4. We feed the raw web data directly to the LLM to summarize
+print("🧠 Analyzing results...")
+prompt = f"""
+You are an elite researcher. Answer the user's question based ONLY on the following live web search results. Do not guess.
 
-result = crew.kickoff()
+User's Question: {user_query}
+
+Live Web Search Results:
+{search_results}
+"""
+
+response = client.chat.completions.create(
+    model="local-model",
+    messages=[
+        {"role": "system", "content": "You are a factual, concise AI assistant."},
+        {"role": "user", "content": prompt}
+    ],
+    temperature=0.3
+)
 
 print("\n================================================")
 print("✅ FINAL REPORT:")
-print(result)
+print(response.choices[0].message.content)
 print("================================================")
